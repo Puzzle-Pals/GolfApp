@@ -3,6 +3,7 @@ import AdminSection from './components/AdminSection';
 import StatsSection from './components/StatsSection';
 import PlayerStats from './components/PlayerStats';
 import WeekStats from './components/WeekStats';
+import WeekDetails from './components/WeekDetails';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             <Route path="/stats" element={<StatsSection />} />
             <Route path="/stats/:playerName" element={<PlayerStats />} />
             <Route path="/stats/:playerName/week/:weekNumber" element={<WeekStats />} />
+            <Route path="/week/:weekNumber" element={<WeekDetails />} />
             <Route path="/" element={<StatsSection />} />
           </Routes>
         </div>
