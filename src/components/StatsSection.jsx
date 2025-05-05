@@ -14,7 +14,7 @@ function StatsSection() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">League Stats</h2>
+      <h2 className="text-2xl font-bold text-gray-800">Player Stats</h2>
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Players</h3>
         <ul className="space-y-2">

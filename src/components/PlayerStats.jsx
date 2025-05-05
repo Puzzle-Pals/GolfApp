@@ -18,7 +18,7 @@ function PlayerStats() {
     return (
       <div className="container mx-auto p-4">
         <p className="text-gray-600">Player not found.</p>
-        <Link to="/stats" className="text-blue-600 hover:underline">Back to Stats</Link>
+        <Link to="/stats" className="text-blue-600 hover:underline">Back to Player Stats</Link>
       </div>
     );
   }
@@ -65,7 +65,7 @@ function PlayerStats() {
           )}
         </div>
       </div>
-      <Link to="/stats" className="mt-4 inline-block text-blue-600 hover:underline">Back to Stats</Link>
+      <Link to="/stats" className="mt-4 inline-block text-blue-600 hover:underline">Back to Player Stats</Link>
     </div>
   );
 }

@@ -11,9 +11,9 @@ function App() {
       <div className="min-h-screen bg-gray-100">
         <nav className="bg-blue-600 p-4 shadow-md">
           <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-white text-2xl font-bold">Men’s Golf League Tracker</h1>
+            <h1 className="text-white text-2xl font-bold">Thursday Night Men's League - Lake of the Sandhills Golf Course</h1>
             <div className="space-x-4">
-              <Link to="/stats" className="text-white hover:text-gray-200">Stats</Link>
+              <Link to="/stats" className="text-white hover:text-gray-200">Player Stats</Link>
             </div>
           </div>
         </nav>
