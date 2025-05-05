@@ -220,7 +220,7 @@ function AdminSection() {
             updatedPlayer.wins += 1;
           } else if (newTeam.placement === 'secondPlace') {
             updatedPlayer.secondPlace += 1;
-          } else if (newTeam.placement === 'lowestScore') {
+          } else if (team.placement === 'lowestScore') {
             updatedPlayer.thirdPlace += 1;
           }
         }
@@ -438,7 +438,7 @@ function AdminSection() {
                 onChange={(e) => setWeekData({ ...weekData, secondPlacePlayer2: e.target.value })}
                 className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select Player 1</option>
+                <option value="">Select Player 2</option>
                 {sortedPlayers.map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
