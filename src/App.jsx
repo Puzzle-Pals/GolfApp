@@ -1,0 +1,278 @@
+import { useState, useEffect } from 'react';
+
+// Helper function to calculate handicap (simplified: average of score differences from par)
+const calculateHandicap = (scores, par = 36) => {
+  if (scores.length === 0) return 0;
+  const diffs = scores.map(score => score - par);
+  const avgDiff = diffs.reduce((sum, diff) => sum + diff, 0) / scores.length;
+  return Math.round(avgDiff * 10) / 10;
+};
+
+// Main App Component
+const App = () => {
+  const [players, setPlayers] = useState([]);
+  const [weeks, setWeeks] = useState([]);
+  const [adminMode, setAdminMode] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [weekForm, setWeekForm] = useState({
+    weekNumber: '',
+    teams: [{ player1: '', player2: '', score: '' }],
+    deucePotWinner: '',
+    closestToPinWinner: ''
+  });
+
+  // Load data from localStorage
+  useEffect(() => {
+    const savedPlayers = JSON.parse(localStorage.getItem('players') || '[]');
+    const savedWeeks = JSON.parse(localStorage.getItem('weeks') || '[]');
+    setPlayers(savedPlayers);
+    setWeeks(savedWeeks);
+  }, []);
+
+  // Save data to localStorage
+  useEffect(() => {
+    localStorage.setItem('players', JSON.stringify(players));
+    localStorage.setItem('weeks', JSON.stringify(weeks));
+  }, [players, weeks]);
+
+  // Add new player
+  const addPlayer = () => {
+    if (newPlayerName.trim()) {
+      setPlayers([...players, {
+        name: newPlayerName.trim(),
+        gamesPlayed: 0,
+        wins: 0,
+        secondPlace: 0,
+        thirdPlace: 0,
+        deucePotWins: 0,
+        closestToPinWins: 0,
+        scores: []
+      }]);
+      setNewPlayerName('');
+    }
+  };
+
+  // Handle week form submission
+  const addWeek = (e) => {
+    e.preventDefault();
+    const newWeek = {
+      weekNumber: parseInt(weekForm.weekNumber),
+      teams: weekForm.teams.map(team => ({
+        player1: team.player1,
+        player2: team.player2,
+        score: parseInt(team.score)
+      })),
+      deucePotWinner: weekForm.deucePotWinner,
+      closestToPinWinner: weekForm.closestToPinWinner
+    };
+
+    // Update player stats
+    const updatedPlayers = players.map(player => {
+      let updatedPlayer = { ...player };
+      const team = newWeek.teams.find(t => t.player1 === player.name || t.player2 === player.name);
+      if (team) {
+        updatedPlayer.gamesPlayed += 1;
+        updatedPlayer.scores.push(team.score);
+      }
+      if (newWeek.deucePotWinner === player.name) {
+        updatedPlayer.deucePotWins += 1;
+      }
+      if (newWeek.closestToPinWinner === player.name) {
+        updatedPlayer.closestToPinWins += 1;
+      }
+      return updatedPlayer;
+    });
+
+    // Sort teams by score to determine placements
+    const sortedTeams = [...newWeek.teams].sort((a, b) => a.score - b.score);
+    sortedTeams.forEach((team, index) => {
+      updatedPlayers.forEach((player, i) => {
+        if (team.player1 === player.name || team.player2 === player.name) {
+          if (index === 0) updatedPlayers[i].wins += 1;
+          if (index === 1) updatedPlayers[i].secondPlace += 1;
+          if (index === 2) updatedPlayers[i].thirdPlace += 1;
+        }
+      });
+    });
+
+    setPlayers(updatedPlayers);
+    setWeeks([...weeks, newWeek].sort((a, b) => a.weekNumber - b.weekNumber));
+    setWeekForm({ weekNumber: '', teams: [{ player1: '', player2: '', score: '' }], deucePotWinner: '', closestToPinWinner: '' });
+  };
+
+  // Add new team input field
+  const addTeamField = () => {
+    setWeekForm({
+      ...weekForm,
+      teams: [...weekForm.teams, { player1: '', player2: '', score: '' }]
+    });
+  };
+
+  // Update team input
+  const updateTeam = (index, field, value) => {
+    const updatedTeams = weekForm.teams.map((team, i) =>
+      i === index ? { ...team, [field]: value } : team
+    );
+    setWeekForm({ ...weekForm, teams: updatedTeams });
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-4">Men's Golf League Tracker</h1>
+      <button
+        onClick={() => setAdminMode(!adminMode)}
+        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        {adminMode ? 'View Stats' : 'Admin Mode'}
+      </button>
+
+      {adminMode ? (
+        <div>
+          <h2 className="text-2xl font-semibold mb-2">Admin: Add Data</h2>
+          {/* Add Player Form */}
+          <div className="mb-4">
+            <h3 className="text-xl mb-2">Add New Player</h3>
+            <input
+              type="text"
+              value={newPlayerName}
+              onChange={(e) => setNewPlayerName(e.target.value)}
+              placeholder="Player Name"
+              className="p-2 border rounded mr-2"
+            />
+            <button
+              onClick={addPlayer}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Add Player
+            </button>
+          </div>
+          {/* Add Week Form */}
+          <div>
+            <h3 className="text-xl mb-2">Add Week Results</h3>
+            <form onSubmit={addWeek} className="space-y-4">
+              <div>
+                <label className="block">Week Number</label>
+                <input
+                  type="number"
+                  value={weekForm.weekNumber}
+                  onChange={(e) => setWeekForm({ ...weekForm, weekNumber: e.target.value })}
+                  className="p-2 border rounded w-full"
+                  required
+                />
+              </div>
+              {weekForm.teams.map((team, index) => (
+                <div key={index} className="flex space-x-2">
+                  <select
+                    value={team.player1}
+                    onChange={(e) => updateTeam(index, 'player1', e.target.value)}
+                    className="p-2 border rounded"
+                    required
+                  >
+                    <option value="">Select Player 1</option>
+                    {players.map(p => (
+                      <option key={p.name} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={team.player2}
+                    onChange={(e) => updateTeam(index, 'player2', e.target.value)}
+                    className="p-2 border rounded"
+                    required
+                  >
+                    <option value="">Select Player 2</option>
+                    {players.map(p => (
+                      <option key={p.name} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    value={team.score}
+                    onChange={(e) => updateTeam(index, 'score', e.target.value)}
+                    placeholder="Team Score"
+                    className="p-2 border rounded"
+                    required
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addTeamField}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
+                Add Team
+              </button>
+              <div>
+                <label className="block">Deuce Pot Winner</label>
+                <select
+                  value={weekForm.deucePotWinner}
+                  onChange={(e) => setWeekForm({ ...weekForm, deucePotWinner: e.target.value })}
+                  className="p-2 border rounded w-full"
+                >
+                  <option value="">Select Winner</option>
+                  {players.map(p => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block">Closest to Pin Winner</label>
+                <select
+                  value={weekForm.closestToPinWinner}
+                  onChange={(e) => setWeekForm({ ...weekForm, closestToPinWinner: e.target.value })}
+                  className="p-2 border rounded w-full"
+                >
+                  <option value="">Select Winner</option>
+                  {players.map(p => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Submit Week
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {/* Player Stats */}
+          <h2 className="text-2xl font-semibold mb-2">Player Stats</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {players.map(player => (
+              <div key={player.name} className="bg-white p-4 rounded shadow">
+                <h3 className="text-xl font-bold">{player.name}</h3>
+                <p>Games Played: {player.gamesPlayed}</p>
+                <p>Wins: {player.wins}</p>
+                <p>2nd Place: {player.secondPlace}</p>
+                <p>3rd Place: {player.thirdPlace}</p>
+                <p>Deuce Pot Wins: {player.deucePotWins}</p>
+                <p>Closest to Pin Wins: {player.closestToPinWins}</p>
+                <p>Handicap: {calculateHandicap(player.scores)}</p>
+                <p>Weekly Scores: {player.scores.join(', ') || 'None'}</p>
+              </div>
+            ))}
+          </div>
+          {/* Weekly Results */}
+          <h2 className="text-2xl font-semibold mt-6 mb-2">Weekly Results</h2>
+          {weeks.map(week => (
+            <div key={week.weekNumber} className="bg-white p-4 rounded shadow mb-4">
+              <h3 className="text-xl font-bold">Week {week.weekNumber}</h3>
+              {week.teams.map((team, index) => (
+                <p key={index}>
+                  {team.player1} & {team.player2}: {team.score}
+                </p>
+              ))}
+              <p>Deuce Pot: {week.deucePotWinner || 'None'}</p>
+              <p>Closest to Pin: {week.closestToPinWinner || 'None'}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
