@@ -56,4 +56,4 @@ git push -u origin main || { echo "Push failed. Check GitHub credentials or netw
 echo "Successfully pushed to GitHub"
 
 # Verify
-echo "Check your repository at https://github.com/Puzzle-Pals/GolfApp"
+echo "Check your repository at https://github.com/Puzzle-Pals/GolfApp.git"
