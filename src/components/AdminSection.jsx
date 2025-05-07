@@ -22,17 +22,28 @@ function AdminSection() {
   const [editingWeek, setEditingWeek] = useState(null);
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editPlayerName, setEditPlayerName] = useState('');
+  const [pointSystemEnabled, setPointSystemEnabled] = useState(true);
+  const [errors, setErrors] = useState({}); // Track validation errors
 
   useEffect(() => {
     const storedPlayers = JSON.parse(localStorage.getItem('players') || '[]');
     const storedWeeks = JSON.parse(localStorage.getItem('weeks') || '[]');
+    const storedPointSystem = localStorage.getItem('pointSystemEnabled');
     setPlayers(storedPlayers);
     setWeeks(storedWeeks);
+    setPointSystemEnabled(storedPointSystem !== null ? JSON.parse(storedPointSystem) : true);
 
     // Auto-select next week number
     const maxWeek = storedWeeks.length > 0 ? Math.max(...storedWeeks.map(w => w.weekNumber)) : 0;
     setWeekData(prev => ({ ...prev, weekNumber: (maxWeek + 1).toString() }));
   }, []);
+
+  // Handle point system toggle
+  const handlePointSystemToggle = () => {
+    const newValue = !pointSystemEnabled;
+    setPointSystemEnabled(newValue);
+    localStorage.setItem('pointSystemEnabled', JSON.stringify(newValue));
+  };
 
   // Convert score to relative-to-par format (assuming par 37, used only for table)
   const formatScore = (score) => {
@@ -120,18 +131,31 @@ function AdminSection() {
   };
 
   const addWeek = () => {
-    if (
-      !weekData.weekNumber ||
-      !weekData.winnerPlayer1 ||
-      !weekData.winnerPlayer2 ||
-      !weekData.winnerScore ||
-      !weekData.secondPlacePlayer1 ||
-      !weekData.secondPlacePlayer2 ||
-      !weekData.secondPlaceScore ||
-      !weekData.lowestScorePlayer1 ||
-      !weekData.lowestScorePlayer2 ||
-      !weekData.lowestScoreScore
-    ) return;
+    // Validate required fields
+    const requiredFields = [
+      'weekNumber',
+      'winnerPlayer1',
+      'winnerPlayer2',
+      'winnerScore',
+      'secondPlacePlayer1',
+      'secondPlacePlayer2',
+      'secondPlaceScore',
+      'lowestScorePlayer1',
+      'lowestScorePlayer2',
+      'lowestScoreScore'
+    ];
+    const newErrors = {};
+    let isValid = true;
+
+    requiredFields.forEach(field => {
+      if (!weekData[field] || weekData[field].trim() === '') {
+        newErrors[field] = true;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+    if (!isValid) return;
 
     let updatedWeeks = [...weeks];
     let updatedPlayers = [...players];
@@ -220,7 +244,7 @@ function AdminSection() {
             updatedPlayer.wins += 1;
           } else if (newTeam.placement === 'secondPlace') {
             updatedPlayer.secondPlace += 1;
-          } else if (team.placement === 'lowestScore') {
+          } else if (newTeam.placement === 'lowestScore') {
             updatedPlayer.thirdPlace += 1;
           }
         }
@@ -256,7 +280,7 @@ function AdminSection() {
       deucePotWinner: '',
       closestToPinWinner: ''
     });
-    setEditingWeek(null);
+    setErrors({});
   };
 
   const startEditWeek = (week) => {
@@ -275,6 +299,7 @@ function AdminSection() {
       deucePotWinner: week.deucePotWinner || '',
       closestToPinWinner: week.closestToPinWinner || ''
     });
+    setErrors({});
   };
 
   const deleteWeek = (weekNumber) => {
@@ -320,6 +345,14 @@ function AdminSection() {
     return firstNameA.localeCompare(firstNameB);
   });
 
+  // Get available players for dropdowns, excluding selected players
+  const getAvailablePlayers = (excludeKeys) => {
+    const selectedPlayers = excludeKeys
+      .map(key => weekData[key])
+      .filter(name => name && name !== '');
+    return sortedPlayers.filter(player => !selectedPlayers.includes(player.name));
+  };
+
   // Generate week numbers 1 to 99
   const weekNumbers = Array.from({ length: 99 }, (_, i) => (i + 1).toString());
 
@@ -345,7 +378,21 @@ function AdminSection() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Admin Section</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">Admin Section</h2>
+        <div className="flex items-center space-x-2">
+          <label htmlFor="pointSystemToggle" className="text-sm font-medium text-gray-700">
+            Enable Point System
+          </label>
+          <input
+            id="pointSystemToggle"
+            type="checkbox"
+            checked={pointSystemEnabled}
+            onChange={handlePointSystemToggle}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </div>
+      </div>
 
       {/* Add Player Form */}
       <div className="bg-white p-6 rounded-lg shadow-md">
@@ -377,7 +424,9 @@ function AdminSection() {
             <select
               value={weekData.weekNumber}
               onChange={(e) => setWeekData({ ...weekData, weekNumber: e.target.value })}
-              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full ${
+                errors.weekNumber ? 'border-red-500' : 'border-gray-300'
+              }`}
             >
               {weekNumbers.map(num => (
                 <option key={num} value={num}>{num}</option>
@@ -392,20 +441,24 @@ function AdminSection() {
               <select
                 value={weekData.winnerPlayer1}
                 onChange={(e) => setWeekData({ ...weekData, winnerPlayer1: e.target.value })}
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.winnerPlayer1 ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select Player 1</option>
-                {sortedPlayers.map(player => (
+                {getAvailablePlayers(['winnerPlayer2', 'secondPlacePlayer1', 'secondPlacePlayer2']).map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
               </select>
               <select
                 value={weekData.winnerPlayer2}
                 onChange={(e) => setWeekData({ ...weekData, winnerPlayer2: e.target.value })}
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.winnerPlayer2 ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
-                <option value="">Select Player 2</option>
-                {sortedPlayers.map(player => (
+                <option value="">Select Player 1</option>
+                {getAvailablePlayers(['winnerPlayer1', 'secondPlacePlayer1', 'secondPlacePlayer2']).map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
               </select>
@@ -414,7 +467,9 @@ function AdminSection() {
                 value={weekData.winnerScore}
                 onChange={(e) => setWeekData({ ...weekData, winnerScore: e.target.value })}
                 placeholder="Score"
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.winnerScore ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
           </div>
@@ -426,20 +481,24 @@ function AdminSection() {
               <select
                 value={weekData.secondPlacePlayer1}
                 onChange={(e) => setWeekData({ ...weekData, secondPlacePlayer1: e.target.value })}
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.secondPlacePlayer1 ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select Player 1</option>
-                {sortedPlayers.map(player => (
+                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer2']).map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
               </select>
               <select
                 value={weekData.secondPlacePlayer2}
                 onChange={(e) => setWeekData({ ...weekData, secondPlacePlayer2: e.target.value })}
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.secondPlacePlayer2 ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select Player 2</option>
-                {sortedPlayers.map(player => (
+                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer1']).map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
               </select>
@@ -448,7 +507,9 @@ function AdminSection() {
                 value={weekData.secondPlaceScore}
                 onChange={(e) => setWeekData({ ...weekData, secondPlaceScore: e.target.value })}
                 placeholder="Score"
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.secondPlaceScore ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
           </div>
@@ -460,20 +521,24 @@ function AdminSection() {
               <select
                 value={weekData.lowestScorePlayer1}
                 onChange={(e) => setWeekData({ ...weekData, lowestScorePlayer1: e.target.value })}
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.lowestScorePlayer1 ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select Player 1</option>
-                {sortedPlayers.map(player => (
+                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer1', 'secondPlacePlayer2', 'lowestScorePlayer2']).map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
               </select>
               <select
                 value={weekData.lowestScorePlayer2}
                 onChange={(e) => setWeekData({ ...weekData, lowestScorePlayer2: e.target.value })}
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.lowestScorePlayer2 ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="">Select Player 2</option>
-                {sortedPlayers.map(player => (
+                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer1', 'secondPlacePlayer2', 'lowestScorePlayer1']).map(player => (
                   <option key={player.name} value={player.name}>{player.name}</option>
                 ))}
               </select>
@@ -482,7 +547,9 @@ function AdminSection() {
                 value={weekData.lowestScoreScore}
                 onChange={(e) => setWeekData({ ...weekData, lowestScoreScore: e.target.value })}
                 placeholder="Score"
-                className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.lowestScoreScore ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
           </div>
@@ -493,7 +560,7 @@ function AdminSection() {
             <select
               value={weekData.deucePotWinner}
               onChange={(e) => setWeekData({ ...weekData, deucePotWinner: e.target.value })}
-              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full border-gray-300"
             >
               <option value="">Select Winner</option>
               {sortedPlayers.map(player => (
@@ -508,7 +575,7 @@ function AdminSection() {
             <select
               value={weekData.closestToPinWinner}
               onChange={(e) => setWeekData({ ...weekData, closestToPinWinner: e.target.value })}
-              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full border-gray-300"
             >
               <option value="">Select Winner</option>
               {sortedPlayers.map(player => (
@@ -541,6 +608,7 @@ function AdminSection() {
                   deucePotWinner: '',
                   closestToPinWinner: ''
                 });
+                setErrors({});
               }}
               className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
             >
