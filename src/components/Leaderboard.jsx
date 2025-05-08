@@ -1,193 +1,151 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { FaGolfBall } from 'react-icons/fa';
 
 function Leaderboard() {
   const [players, setPlayers] = useState([]);
-  const [pointSystemEnabled, setPointSystemEnabled] = useState(true);
-  const [sortKey, setSortKey] = useState(null); // Track current sort key
+  const [sortConfig, setSortConfig] = useState({ key: 'wins', direction: 'descending' });
+  const [pointSystemEnabled, setPointSystemEnabled] = useState(false);
 
   useEffect(() => {
     const storedPlayers = JSON.parse(localStorage.getItem('players') || '[]');
     const storedPointSystem = localStorage.getItem('pointSystemEnabled');
-    setPlayers(storedPlayers);
-    setPointSystemEnabled(storedPointSystem !== null ? JSON.parse(storedPointSystem) : true);
+    const isPointSystemEnabled = storedPointSystem !== null ? JSON.parse(storedPointSystem) : false;
+    setPointSystemEnabled(isPointSystemEnabled);
+
+    const playersWithPoints = storedPlayers.map(player => ({
+      ...player,
+      points: isPointSystemEnabled
+        ? (player.wins || 0) * 10 + 
+          (player.secondPlace || 0) * 5 + 
+          (player.thirdPlace || 0) * 2 + 
+          (player.deucePotWins || 0) * 3 + 
+          (player.closestToPinWins || 0) * 3
+        : 0
+    }));
+
+    setPlayers(playersWithPoints);
   }, []);
 
-  // Calculate total points for a player
-  const calculateTotalPoints = (player) => {
-    return (
-      player.wins * 5 +
-      player.secondPlace * 4 +
-      player.deucePotWins * 2 +
-      player.closestToPinWins * 3
-    );
+  const sortPlayers = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+
+    const sortedPlayers = [...players].sort((a, b) => {
+      const valueA = a[key] || 0;
+      const valueB = b[key] || 0;
+      return direction === 'ascending' ? valueA - valueB : valueB - valueA;
+    });
+
+    setPlayers(sortedPlayers);
   };
 
-  // Sort players by selected key or default (total points or wins)
-  const getTopPlayers = () => {
-    return [...players]
-      .sort((a, b) => {
-        // Handle sorting based on sortKey or default
-        if (sortKey) {
-          // Sort by selected stat (descending)
-          const valueA = a[sortKey];
-          const valueB = b[sortKey];
-          if (valueB !== valueA) {
-            return valueB - valueA;
-          }
-        } else if (pointSystemEnabled) {
-          // Default: Sort by total points (descending)
-          const pointsA = calculateTotalPoints(a);
-          const pointsB = calculateTotalPoints(b);
-          if (pointsB !== pointsA) {
-            return pointsB - pointsA;
-          }
-        } else {
-          // Default: Sort by wins (descending)
-          if (b.wins !== a.wins) {
-            return b.wins - a.wins;
-          }
-        }
-        // If tied, sort by first name (alphabetically)
-        const firstNameA = a.name.split(' ')[0].toLowerCase();
-        const firstNameB = b.name.split(' ')[0].toLowerCase();
-        return firstNameA.localeCompare(firstNameB);
-      })
-      .slice(0, 10); // Take top 10
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'ascending' ? ' ↑' : ' ↓';
+    }
+    return '';
   };
-
-  // Handle sort button click
-  const handleSort = (key) => {
-    setSortKey(key);
-  };
-
-  // Get top players
-  const topPlayers = getTopPlayers();
-
-  // Create rows for the table (max 10 rows)
-  const tableRows = topPlayers.map(player => ({
-    name: player.name,
-    wins: player.wins,
-    secondPlace: player.secondPlace,
-    thirdPlace: player.thirdPlace,
-    deucePotWins: player.deucePotWins,
-    closestToPinWins: player.closestToPinWins,
-    totalPoints: calculateTotalPoints(player)
-  }));
 
   return (
-    <div className="container mx-auto p-4">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Leaderboard</h2>
-      <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="container">
+      <div className="card">
+        <h2 className="text-2xl font-bold text-emerald-green flex items-center mb-4">
+          <FaGolfBall className="mr-2 text-golden-yellow" /> Leaderboard
+        </h2>
         {players.length === 0 ? (
-          <p className="text-gray-600">No players added yet.</p>
+          <p className="text-dark-slate">No players added yet.</p>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Player Name
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  <th className="text-center">Name</th>
+                  {pointSystemEnabled && (
+                    <th className="text-center">
+                      <a
+                        href="#"
+                        onClick={(e) => { e.preventDefault(); sortPlayers('points'); }}
+                        className="text-dark-slate hover:text-coral-red-dark"
+                      >
+                        Points{getSortIndicator('points')}
+                      </a>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex flex-col">
-                        <button
-                          onClick={() => handleSort('wins')}
-                          className="mb-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-700"
-                        >
-                          Sort by
-                        </button>
-                        Wins
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex flex-col">
-                        <button
-                          onClick={() => handleSort('secondPlace')}
-                          className="mb-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-700"
-                        >
-                          Sort by
-                        </button>
-                        2nd Place
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex flex-col">
-                        <button
-                          onClick={() => handleSort('closestToPinWins')}
-                          className="mb-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-700"
-                        >
-                          Sort by
-                        </button>
-                        Closest to Pin
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex flex-col">
-                        <button
-                          onClick={() => handleSort('deucePotWins')}
-                          className="mb-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-700"
-                        >
-                          Sort by
-                        </button>
-                        Deuce Pot
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex flex-col">
-                        <button
-                          onClick={() => handleSort('thirdPlace')}
-                          className="mb-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-700"
-                        >
-                          Sort by
-                        </button>
-                        Highest Score
-                      </div>
-                    </th>
+                  )}
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('wins'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Wins{getSortIndicator('wins')}
+                    </a>
+                  </th>
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('secondPlace'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      2nd Place{getSortIndicator('secondPlace')}
+                    </a>
+                  </th>
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('thirdPlace'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Highest Score{getSortIndicator('thirdPlace')}
+                    </a>
+                  </th>
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('deucePotWins'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Deuce Pot Wins{getSortIndicator('deucePotWins')}
+                    </a>
+                  </th>
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('closestToPinWins'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Closest to Pin{getSortIndicator('closestToPinWins')}
+                    </a>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {players.map((player, index) => (
+                  <tr key={player.name} className={index % 2 === 0 ? 'bg-cream-white' : ''}>
+                    <td>
+                      <Link
+                        to={`/stats/${encodeURIComponent(player.name)}`}
+                        className="text-dark-slate hover:text-coral-red-dark"
+                      >
+                        {player.name}
+                      </Link>
+                    </td>
                     {pointSystemEnabled && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Points
-                      </th>
+                      <td>{player.points}</td>
                     )}
+                    <td>{player.wins || 0}</td>
+                    <td>{player.secondPlace || 0}</td>
+                    <td>{player.thirdPlace || 0}</td>
+                    <td>{player.deucePotWins || 0}</td>
+                    <td>{player.closestToPinWins || 0}</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {tableRows.map((row, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Link
-                          to={`/stats/${encodeURIComponent(row.name)}`}
-                          className="text-blue-600 hover:underline"
-                        >
-                          {row.name}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{row.wins}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{row.secondPlace}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{row.closestToPinWins}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{row.deucePotWins}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{row.thirdPlace}</td>
-                      {pointSystemEnabled && (
-                        <td className="px-6 py-4 whitespace-nowrap">{row.totalPoints}</td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {pointSystemEnabled && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Scoring Legend</h3>
-                <ul className="list-disc list-inside text-gray-600">
-                  <li>Wins: 5 points</li>
-                  <li>2nd Place: 4 points</li>
-                  <li>Closest to Pin: 3 points</li>
-                  <li>Deuce Pot: 2 points</li>
-                </ul>
-              </div>
-            )}
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

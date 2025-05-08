@@ -1,723 +1,189 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { FaGolfBall, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 
 function AdminSection() {
   const [players, setPlayers] = useState([]);
   const [weeks, setWeeks] = useState([]);
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [weekData, setWeekData] = useState({
-    weekNumber: '',
-    winnerPlayer1: '',
-    winnerPlayer2: '',
-    winnerScore: '',
-    secondPlacePlayer1: '',
-    secondPlacePlayer2: '',
-    secondPlaceScore: '',
-    lowestScorePlayer1: '',
-    lowestScorePlayer2: '',
-    lowestScoreScore: '',
-    deucePotWinner: '',
-    closestToPinWinner: ''
-  });
-  const [editingWeek, setEditingWeek] = useState(null);
-  const [editingPlayer, setEditingPlayer] = useState(null);
-  const [editPlayerName, setEditPlayerName] = useState('');
-  const [pointSystemEnabled, setPointSystemEnabled] = useState(true);
-  const [errors, setErrors] = useState({}); // Track validation errors
+  const [newPlayer, setNewPlayer] = useState('');
+  const [pointSystemEnabled, setPointSystemEnabled] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const storedPlayers = JSON.parse(localStorage.getItem('players') || '[]');
+    const sortedPlayers = [...storedPlayers].sort((a, b) => a.name.localeCompare(b.name));
+    setPlayers(sortedPlayers);
     const storedWeeks = JSON.parse(localStorage.getItem('weeks') || '[]');
-    const storedPointSystem = localStorage.getItem('pointSystemEnabled');
-    setPlayers(storedPlayers);
     setWeeks(storedWeeks);
-    setPointSystemEnabled(storedPointSystem !== null ? JSON.parse(storedPointSystem) : true);
-
-    // Auto-select next week number
-    const maxWeek = storedWeeks.length > 0 ? Math.max(...storedWeeks.map(w => w.weekNumber)) : 0;
-    setWeekData(prev => ({ ...prev, weekNumber: (maxWeek + 1).toString() }));
+    const storedPointSystem = localStorage.getItem('pointSystemEnabled');
+    if (storedPointSystem === null) {
+      localStorage.setItem('pointSystemEnabled', JSON.stringify(false));
+      setPointSystemEnabled(false);
+    } else {
+      setPointSystemEnabled(JSON.parse(storedPointSystem));
+    }
   }, []);
 
-  // Handle point system toggle
-  const handlePointSystemToggle = () => {
+  const addPlayer = () => {
+    if (!newPlayer.trim()) {
+      alert('Please enter a player name.');
+      return;
+    }
+    if (players.some(player => player.name.toLowerCase() === newPlayer.toLowerCase())) {
+      alert('Player already exists.');
+      return;
+    }
+    const updatedPlayers = [...players, { name: newPlayer, gamesPlayed: 0, wins: 0, secondPlace: 0, thirdPlace: 0, deucePotWins: 0, closestToPinWins: 0, scores: [] }].sort((a, b) => a.name.localeCompare(b.name));
+    setPlayers(updatedPlayers);
+    localStorage.setItem('players', JSON.stringify(updatedPlayers));
+    setNewPlayer('');
+  };
+
+  const editPlayer = (index) => {
+    const newName = prompt('Enter new player name:', players[index].name);
+    if (newName && newName.trim() && !players.some((p, i) => i !== index && p.name.toLowerCase() === newName.toLowerCase())) {
+      const updatedPlayers = [...players];
+      updatedPlayers[index].name = newName;
+      setPlayers(updatedPlayers.sort((a, b) => a.name.localeCompare(b.name)));
+      localStorage.setItem('players', JSON.stringify(updatedPlayers));
+    } else if (newName && newName.trim()) {
+      alert('Player name already exists.');
+    }
+  };
+
+  const deletePlayer = (index) => {
+    if (window.confirm(`Are you sure you want to delete ${players[index].name}?`)) {
+      const updatedPlayers = players.filter((_, i) => i !== index).sort((a, b) => a.name.localeCompare(b.name));
+      setPlayers(updatedPlayers);
+      localStorage.setItem('players', JSON.stringify(updatedPlayers));
+    }
+  };
+
+  const togglePointSystem = () => {
     const newValue = !pointSystemEnabled;
     setPointSystemEnabled(newValue);
     localStorage.setItem('pointSystemEnabled', JSON.stringify(newValue));
   };
 
-  // Convert score to relative-to-par format (assuming par 37, used only for table)
-  const formatScore = (score) => {
-    const par = 37;
-    const relativeScore = score - par;
-    if (relativeScore > 0) return `+${relativeScore}`;
-    if (relativeScore === 0) return '0';
-    return relativeScore.toString();
-  };
-
-  const addPlayer = () => {
-    if (!newPlayerName.trim()) return;
-    const updatedPlayers = [...players];
-    if (!updatedPlayers.find(p => p.name === newPlayerName)) {
-      updatedPlayers.push({
-        name: newPlayerName,
-        gamesPlayed: 0,
-        wins: 0,
-        secondPlace: 0,
-        thirdPlace: 0,
-        deucePotWins: 0,
-        closestToPinWins: 0,
-        scores: []
-      });
-      setPlayers(updatedPlayers);
-      localStorage.setItem('players', JSON.stringify(updatedPlayers));
-      setNewPlayerName('');
-    }
-  };
-
-  const startEditPlayer = (player) => {
-    setEditingPlayer(player.name);
-    setEditPlayerName(player.name);
-  };
-
-  const saveEditPlayer = () => {
-    if (!editPlayerName.trim() || editPlayerName === editingPlayer) return;
-    if (players.find(p => p.name === editPlayerName)) return; // Prevent duplicate names
-
-    // Update player name in players
-    const updatedPlayers = players.map(p =>
-      p.name === editingPlayer ? { ...p, name: editPlayerName } : p
-    );
-
-    // Update player name in weeks
-    const updatedWeeks = weeks.map(week => ({
-      ...week,
-      teams: week.teams.map(team => ({
-        ...team,
-        player1: team.player1 === editingPlayer ? editPlayerName : team.player1,
-        player2: team.player2 === editingPlayer ? editPlayerName : team.player2
-      })),
-      deucePotWinner: week.deucePotWinner === editingPlayer ? editPlayerName : week.deucePotWinner,
-      closestToPinWinner: week.closestToPinWinner === editingPlayer ? editPlayerName : week.closestToPinWinner
-    }));
-
-    setPlayers(updatedPlayers);
-    setWeeks(updatedWeeks);
-    localStorage.setItem('players', JSON.stringify(updatedPlayers));
-    localStorage.setItem('weeks', JSON.stringify(updatedWeeks));
-    setEditingPlayer(null);
-    setEditPlayerName('');
-  };
-
-  const deletePlayer = (playerName) => {
-    // Remove player from players
-    const updatedPlayers = players.filter(p => p.name !== playerName);
-
-    // Remove player references from weeks (optional: could keep as placeholder)
-    const updatedWeeks = weeks.map(week => ({
-      ...week,
-      teams: week.teams.map(team => ({
-        ...team,
-        player1: team.player1 === playerName ? '[Deleted Player]' : team.player1,
-        player2: team.player2 === playerName ? '[Deleted Player]' : team.player2
-      })),
-      deucePotWinner: week.deucePotWinner === playerName ? '' : week.deucePotWinner,
-      closestToPinWinner: week.closestToPinWinner === playerName ? '' : week.closestToPinWinner
-    }));
-
-    setPlayers(updatedPlayers);
-    setWeeks(updatedWeeks);
-    localStorage.setItem('players', JSON.stringify(updatedPlayers));
-    localStorage.setItem('weeks', JSON.stringify(updatedWeeks));
-  };
-
-  const addWeek = () => {
-    // Validate required fields
-    const requiredFields = [
-      'weekNumber',
-      'winnerPlayer1',
-      'winnerPlayer2',
-      'winnerScore',
-      'secondPlacePlayer1',
-      'secondPlacePlayer2',
-      'secondPlaceScore',
-      'lowestScorePlayer1',
-      'lowestScorePlayer2',
-      'lowestScoreScore'
-    ];
-    const newErrors = {};
-    let isValid = true;
-
-    requiredFields.forEach(field => {
-      if (!weekData[field] || weekData[field].trim() === '') {
-        newErrors[field] = true;
-        isValid = false;
-      }
-    });
-
-    setErrors(newErrors);
-    if (!isValid) return;
-
-    let updatedWeeks = [...weeks];
-    let updatedPlayers = [...players];
-
-    const newWeek = {
-      weekNumber: parseInt(weekData.weekNumber),
-      teams: [
-        {
-          player1: weekData.winnerPlayer1,
-          player2: weekData.winnerPlayer2,
-          score: parseInt(weekData.winnerScore),
-          placement: 'winner'
-        },
-        {
-          player1: weekData.secondPlacePlayer1,
-          player2: weekData.secondPlacePlayer2,
-          score: parseInt(weekData.secondPlaceScore),
-          placement: 'secondPlace'
-        },
-        {
-          player1: weekData.lowestScorePlayer1,
-          player2: weekData.lowestScorePlayer2,
-          score: parseInt(weekData.lowestScoreScore),
-          placement: 'lowestScore'
-        }
-      ],
-      deucePotWinner: weekData.deucePotWinner,
-      closestToPinWinner: weekData.closestToPinWinner
-    };
-
-    // Update player stats
-    updatedPlayers = updatedPlayers.map(player => {
-      let updatedPlayer = { ...player };
-      const team = newWeek.teams.find(t => t.player1 === player.name || t.player2 === player.name);
-      if (team) {
-        updatedPlayer.gamesPlayed += 1;
-        updatedPlayer.scores.push(team.score);
-        if (team.placement === 'winner') {
-          updatedPlayer.wins += 1;
-        } else if (team.placement === 'secondPlace') {
-          updatedPlayer.secondPlace += 1;
-        } else if (team.placement === 'lowestScore') {
-          updatedPlayer.thirdPlace += 1; // Used for Highest Score
-        }
-      }
-      if (newWeek.deucePotWinner === player.name) {
-        updatedPlayer.deucePotWins += 1;
-      }
-      if (newWeek.closestToPinWinner === player.name) {
-        updatedPlayer.closestToPinWins += 1;
-      }
-      return updatedPlayer;
-    });
-
-    if (editingWeek) {
-      // Update existing week
-      updatedWeeks = updatedWeeks.map(w =>
-        w.weekNumber === editingWeek.weekNumber ? newWeek : w
-      );
-      // Reverse previous stats and apply new ones
-      updatedPlayers = players.map(player => {
-        let updatedPlayer = { ...player };
-        const oldTeam = editingWeek.teams.find(t => t.player1 === player.name || t.player2 === player.name);
-        if (oldTeam) {
-          updatedPlayer.gamesPlayed -= 1;
-          updatedPlayer.scores = updatedPlayer.scores.filter(s => s !== oldTeam.score);
-          if (oldTeam.placement === 'winner') {
-            updatedPlayer.wins -= 1;
-          } else if (oldTeam.placement === 'secondPlace') {
-            updatedPlayer.secondPlace -= 1;
-          } else if (oldTeam.placement === 'lowestScore') {
-            updatedPlayer.thirdPlace -= 1;
-          }
-        }
-        if (editingWeek.deucePotWinner === player.name) {
-          updatedPlayer.deucePotWins -= 1;
-        }
-        if (editingWeek.closestToPinWinner === player.name) {
-          updatedPlayer.closestToPinWins -= 1;
-        }
-        const newTeam = newWeek.teams.find(t => t.player1 === player.name || t.player2 === player.name);
-        if (newTeam) {
-          updatedPlayer.gamesPlayed += 1;
-          updatedPlayer.scores.push(newTeam.score);
-          if (newTeam.placement === 'winner') {
-            updatedPlayer.wins += 1;
-          } else if (newTeam.placement === 'secondPlace') {
-            updatedPlayer.secondPlace += 1;
-          } else if (newTeam.placement === 'lowestScore') {
-            updatedPlayer.thirdPlace += 1;
-          }
-        }
-        if (newWeek.deucePotWinner === player.name) {
-          updatedPlayer.deucePotWins += 1;
-        }
-        if (newWeek.closestToPinWinner === player.name) {
-          updatedPlayer.closestToPinWins += 1;
-        }
-        return updatedPlayer;
-      });
-    } else {
-      // Add new week
-      updatedWeeks.push(newWeek);
-    }
-
-    updatedWeeks.sort((a, b) => a.weekNumber - b.weekNumber);
-    setPlayers(updatedPlayers);
-    setWeeks(updatedWeeks);
-    localStorage.setItem('players', JSON.stringify(updatedPlayers));
-    localStorage.setItem('weeks', JSON.stringify(updatedWeeks));
-    setWeekData({
-      weekNumber: editingWeek ? (parseInt(weekData.weekNumber) + 1).toString() : (parseInt(weekData.weekNumber) + 1).toString(),
-      winnerPlayer1: '',
-      winnerPlayer2: '',
-      winnerScore: '',
-      secondPlacePlayer1: '',
-      secondPlacePlayer2: '',
-      secondPlaceScore: '',
-      lowestScorePlayer1: '',
-      lowestScorePlayer2: '',
-      lowestScoreScore: '',
-      deucePotWinner: '',
-      closestToPinWinner: ''
-    });
-    setErrors({});
-  };
-
-  const startEditWeek = (week) => {
-    setEditingWeek(week);
-    setWeekData({
-      weekNumber: week.weekNumber.toString(),
-      winnerPlayer1: week.teams.find(t => t.placement === 'winner')?.player1 || '',
-      winnerPlayer2: week.teams.find(t => t.placement === 'winner')?.player2 || '',
-      winnerScore: week.teams.find(t => t.placement === 'winner')?.score.toString() || '',
-      secondPlacePlayer1: week.teams.find(t => t.placement === 'secondPlace')?.player1 || '',
-      secondPlacePlayer2: week.teams.find(t => t.placement === 'secondPlace')?.player2 || '',
-      secondPlaceScore: week.teams.find(t => t.placement === 'secondPlace')?.score.toString() || '',
-      lowestScorePlayer1: week.teams.find(t => t.placement === 'lowestScore')?.player1 || '',
-      lowestScorePlayer2: week.teams.find(t => t.placement === 'lowestScore')?.player2 || '',
-      lowestScoreScore: week.teams.find(t => t.placement === 'lowestScore')?.score.toString() || '',
-      deucePotWinner: week.deucePotWinner || '',
-      closestToPinWinner: week.closestToPinWinner || ''
-    });
-    setErrors({});
-  };
-
-  const deleteWeek = (weekNumber) => {
-    const weekToDelete = weeks.find(w => w.weekNumber === weekNumber);
-    if (!weekToDelete) return;
-
-    // Reverse player stats
-    let updatedPlayers = players.map(player => {
-      let updatedPlayer = { ...player };
-      const team = weekToDelete.teams.find(t => t.player1 === player.name || t.player2 === player.name);
-      if (team) {
-        updatedPlayer.gamesPlayed -= 1;
-        updatedPlayer.scores = updatedPlayer.scores.filter(s => s !== team.score);
-        if (team.placement === 'winner') {
-          updatedPlayer.wins -= 1;
-        } else if (team.placement === 'secondPlace') {
-          updatedPlayer.secondPlace -= 1;
-        } else if (team.placement === 'lowestScore') {
-          updatedPlayer.thirdPlace -= 1;
-        }
-      }
-      if (weekToDelete.deucePotWinner === player.name) {
-        updatedPlayer.deucePotWins -= 1;
-      }
-      if (weekToDelete.closestToPinWinner === player.name) {
-        updatedPlayer.closestToPinWins -= 1;
-      }
-      return updatedPlayer;
-    });
-
-    // Remove week
-    const updatedWeeks = weeks.filter(w => w.weekNumber !== weekNumber);
-    setPlayers(updatedPlayers);
-    setWeeks(updatedWeeks);
-    localStorage.setItem('players', JSON.stringify(updatedPlayers));
-    localStorage.setItem('weeks', JSON.stringify(updatedWeeks));
-  };
-
-  // Sort players by first name
-  const sortedPlayers = [...players].sort((a, b) => {
-    const firstNameA = a.name.split(' ')[0].toLowerCase();
-    const firstNameB = b.name.split(' ')[0].toLowerCase();
-    return firstNameA.localeCompare(firstNameB);
-  });
-
-  // Get available players for dropdowns, excluding selected players
-  const getAvailablePlayers = (excludeKeys) => {
-    const selectedPlayers = excludeKeys
-      .map(key => weekData[key])
-      .filter(name => name && name !== '');
-    return sortedPlayers.filter(player => !selectedPlayers.includes(player.name));
-  };
-
-  // Generate week numbers 1 to 99
-  const weekNumbers = Array.from({ length: 99 }, (_, i) => (i + 1).toString());
-
-  // Format week details for table
-  const formatWeekDetails = (week) => {
-    const teamDetails = week.teams.map(team => 
-      `${team.placement === 'winner' ? 'Winners' : team.placement === 'secondPlace' ? '2nd place' : 'Highest score'} - ${team.player1} & ${team.player2}: ${formatScore(team.score)}`
-    ).join(', ');
-    const deucePot = week.deucePotWinner ? `, Deuce Pot: ${week.deucePotWinner}` : '';
-    const closestToPin = week.closestToPinWinner ? `, Closest to Pin: ${week.closestToPinWinner}` : '';
-    return `Week ${week.weekNumber}: ${teamDetails}${deucePot}${closestToPin}`;
-  };
-
-  // Get unique players for a week
-  const getWeekPlayers = (week) => {
-    const players = new Set();
-    week.teams.forEach(team => {
-      players.add(team.player1);
-      players.add(team.player2);
-    });
-    return Array.from(players).join(', ');
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Admin Section</h2>
-        <div className="flex items-center space-x-2">
-          <label htmlFor="pointSystemToggle" className="text-sm font-medium text-gray-700">
-            Enable Point System
-          </label>
-          <input
-            id="pointSystemToggle"
-            type="checkbox"
-            checked={pointSystemEnabled}
-            onChange={handlePointSystemToggle}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </div>
-      </div>
-
-      {/* Add Player Form */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Add New Player</h3>
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            value={newPlayerName}
-            onChange={(e) => setNewPlayerName(e.target.value)}
-            placeholder="Player Name (e.g., John Doe)"
-            className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            onClick={addPlayer}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-          >
-            Add Player
-          </button>
-        </div>
-      </div>
-
-      {/* Add/Edit Week Form */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">{editingWeek ? 'Edit Week Results' : 'Add Week Results'}</h3>
-        <div className="grid grid-cols-1 gap-4">
-          {/* Week Number */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Week Number</label>
-            <select
-              value={weekData.weekNumber}
-              onChange={(e) => setWeekData({ ...weekData, weekNumber: e.target.value })}
-              className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full ${
-                errors.weekNumber ? 'border-red-500' : 'border-gray-300'
-              }`}
-            >
-              {weekNumbers.map(num => (
-                <option key={num} value={num}>{num}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Winner Team */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Winner</label>
-            <div className="grid grid-cols-3 gap-4">
-              <select
-                value={weekData.winnerPlayer1}
-                onChange={(e) => setWeekData({ ...weekData, winnerPlayer1: e.target.value })}
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.winnerPlayer1 ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Player 1</option>
-                {getAvailablePlayers(['winnerPlayer2', 'secondPlacePlayer1', 'secondPlacePlayer2']).map(player => (
-                  <option key={player.name} value={player.name}>{player.name}</option>
-                ))}
-              </select>
-              <select
-                value={weekData.winnerPlayer2}
-                onChange={(e) => setWeekData({ ...weekData, winnerPlayer2: e.target.value })}
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.winnerPlayer2 ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Player 1</option>
-                {getAvailablePlayers(['winnerPlayer1', 'secondPlacePlayer1', 'secondPlacePlayer2']).map(player => (
-                  <option key={player.name} value={player.name}>{player.name}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={weekData.winnerScore}
-                onChange={(e) => setWeekData({ ...weekData, winnerScore: e.target.value })}
-                placeholder="Score"
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.winnerScore ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-            </div>
-          </div>
-
-          {/* 2nd Place Team */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">2nd Place</label>
-            <div className="grid grid-cols-3 gap-4">
-              <select
-                value={weekData.secondPlacePlayer1}
-                onChange={(e) => setWeekData({ ...weekData, secondPlacePlayer1: e.target.value })}
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.secondPlacePlayer1 ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Player 1</option>
-                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer2']).map(player => (
-                  <option key={player.name} value={player.name}>{player.name}</option>
-                ))}
-              </select>
-              <select
-                value={weekData.secondPlacePlayer2}
-                onChange={(e) => setWeekData({ ...weekData, secondPlacePlayer2: e.target.value })}
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.secondPlacePlayer2 ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Player 2</option>
-                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer1']).map(player => (
-                  <option key={player.name} value={player.name}>{player.name}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={weekData.secondPlaceScore}
-                onChange={(e) => setWeekData({ ...weekData, secondPlaceScore: e.target.value })}
-                placeholder="Score"
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.secondPlaceScore ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-            </div>
-          </div>
-
-          {/* Lowest Score Team */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lowest Score</label>
-            <div className="grid grid-cols-3 gap-4">
-              <select
-                value={weekData.lowestScorePlayer1}
-                onChange={(e) => setWeekData({ ...weekData, lowestScorePlayer1: e.target.value })}
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.lowestScorePlayer1 ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Player 1</option>
-                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer1', 'secondPlacePlayer2', 'lowestScorePlayer2']).map(player => (
-                  <option key={player.name} value={player.name}>{player.name}</option>
-                ))}
-              </select>
-              <select
-                value={weekData.lowestScorePlayer2}
-                onChange={(e) => setWeekData({ ...weekData, lowestScorePlayer2: e.target.value })}
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.lowestScorePlayer2 ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Player 2</option>
-                {getAvailablePlayers(['winnerPlayer1', 'winnerPlayer2', 'secondPlacePlayer1', 'secondPlacePlayer2', 'lowestScorePlayer1']).map(player => (
-                  <option key={player.name} value={player.name}>{player.name}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={weekData.lowestScoreScore}
-                onChange={(e) => setWeekData({ ...weekData, lowestScoreScore: e.target.value })}
-                placeholder="Score"
-                className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.lowestScoreScore ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-            </div>
-          </div>
-
-          {/* Deuce Pot Winner */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Deuce Pot Winner</label>
-            <select
-              value={weekData.deucePotWinner}
-              onChange={(e) => setWeekData({ ...weekData, deucePotWinner: e.target.value })}
-              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full border-gray-300"
-            >
-              <option value="">Select Winner</option>
-              {sortedPlayers.map(player => (
-                <option key={player.name} value={player.name}>{player.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Closest to Pin Winner */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Closest to Pin Winner</label>
-            <select
-              value={weekData.closestToPinWinner}
-              onChange={(e) => setWeekData({ ...weekData, closestToPinWinner: e.target.value })}
-              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full border-gray-300"
-            >
-              <option value="">Select Winner</option>
-              {sortedPlayers.map(player => (
-                <option key={player.name} value={player.name}>{player.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={addWeek}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-          >
-            {editingWeek ? 'Update Week' : 'Add Week'}
-          </button>
-          {editingWeek && (
-            <button
-              onClick={() => {
-                setEditingWeek(null);
-                setWeekData({
-                  weekNumber: (parseInt(weekData.weekNumber) + 1).toString(),
-                  winnerPlayer1: '',
-                  winnerPlayer2: '',
-                  winnerScore: '',
-                  secondPlacePlayer1: '',
-                  secondPlacePlayer2: '',
-                  secondPlaceScore: '',
-                  lowestScorePlayer1: '',
-                  lowestScorePlayer2: '',
-                  lowestScoreScore: '',
-                  deucePotWinner: '',
-                  closestToPinWinner: ''
-                });
-                setErrors({});
-              }}
-              className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
-            >
-              Cancel Edit
+    <div className="container">
+      <div className="card">
+        <h2 className="text-2xl font-bold text-emerald-green flex items-center mb-4">
+          <FaGolfBall className="mr-2 text-golden-yellow" /> Admin Section
+        </h2>
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-dark-slate mb-2">Manage Players</h3>
+          <div className="flex mb-4">
+            <input
+              type="text"
+              value={newPlayer}
+              onChange={(e) => setNewPlayer(e.target.value)}
+              placeholder="Enter player name"
+              className="input flex-grow mr-2"
+            />
+            <button onClick={addPlayer} className="btn btn-primary">
+              <FaPlus className="mr-1" /> Add Player
             </button>
+          </div>
+          {players.length === 0 ? (
+            <p className="text-dark-slate">No players added yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className="text-left">Player</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {players.map((player, index) => (
+                    <tr key={player.name} className={index % 2 === 0 ? 'bg-cream-white' : ''}>
+                      <td className="flex items-center space-x-2">
+                        <span>{player.name}</span>
+                        <button
+                          onClick={() => editPlayer(index)}
+                          className="text-dark-slate hover:text-coral-red-dark"
+                          title="Edit"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => deletePlayer(index)}
+                          className="text-dark-slate hover:text-coral-red-dark"
+                          title="Delete"
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Weeks Table */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">All Weeks</h3>
-        {weeks.length === 0 ? (
-          <p className="text-gray-600">No weeks added yet.</p>
-        ) : (
-          <div className="max-h-[400px] overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Names</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weeks</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {weeks.map(week => (
-                  <tr key={week.weekNumber}>
-                    <td className="px-6 py-4 whitespace-nowrap">{getWeekPlayers(week)}</td>
-                    <td className="px-6 py-4">{formatWeekDetails(week)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                      <button
-                        onClick={() => startEditWeek(week)}
-                        className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteWeek(week.weekNumber)}
-                        className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </td>
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-dark-slate mb-2">Settings</h3>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={pointSystemEnabled}
+              onChange={togglePointSystem}
+              className="mr-2"
+            />
+            <span className="text-dark-slate">Enable Point System</span>
+          </label>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-dark-slate mb-2">Manage Weeks</h3>
+          <button
+            onClick={() => navigate('/admin/add-week')}
+            className="btn btn-primary mb-4"
+          >
+            <FaPlus className="mr-1" /> Add Week
+          </button>
+          {weeks.length === 0 ? (
+            <p className="text-dark-slate">No weeks added yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className="text-left">Week</th>
+                    <th className="text-left">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Players List */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">All Players</h3>
-        {sortedPlayers.length === 0 ? (
-          <p className="text-gray-600">No players added yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {sortedPlayers.map(player => (
-              <li key={player.name} className="flex items-center justify-between">
-                {editingPlayer === player.name ? (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={editPlayerName}
-                      onChange={(e) => setEditPlayerName(e.target.value)}
-                      className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={saveEditPlayer}
-                      className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingPlayer(null)}
-                      className="bg-gray-600 text-white px-3 py-1 rounded-md hover:bg-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between w-full">
-                    <Link
-                      to={`/stats/${encodeURIComponent(player.name)}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {player.name}
-                    </Link>
-                    <div className="space-x-2">
-                      <button
-                        onClick={() => startEditPlayer(player)}
-                        className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deletePlayer(player.name)}
-                        className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+                </thead>
+                <tbody>
+                  {weeks.sort((a, b) => a.weekNumber - b.weekNumber).map(week => (
+                    <tr key={week.weekNumber} className={week.weekNumber % 2 === 0 ? 'bg-cream-white' : ''}>
+                      <td>Week {week.weekNumber}</td>
+                      <td>
+                        <button
+                          onClick={() => navigate(`/admin/edit-week/${week.weekNumber}`)}
+                          className="text-dark-slate hover:text-coral-red-dark mr-2"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete Week ${week.weekNumber}?`)) {
+                              const updatedWeeks = weeks.filter(w => w.weekNumber !== week.weekNumber);
+                              setWeeks(updatedWeeks);
+                              localStorage.setItem('weeks', JSON.stringify(updatedWeeks));
+                            }
+                          }}
+                          className="text-dark-slate hover:text-coral-red-dark"
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,35 +1,36 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import AdminSection from './components/AdminSection';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import League from './components/League';
 import StatsSection from './components/StatsSection';
+import Leaderboard from './components/Leaderboard';
+import AdminSection from './components/AdminSection';
 import PlayerStats from './components/PlayerStats';
 import WeekStats from './components/WeekStats';
-import WeekDetails from './components/WeekDetails';
-import Leaderboard from './components/Leaderboard';
+import WeeklyResults from './components/WeeklyResults';
+import AddWeek from './components/AddWeek';
+import EditWeek from './components/EditWeek';
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-100">
-        <nav className="bg-blue-600 p-4 shadow-md">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-white text-2xl font-bold">Thursday Night Men's League - Lake of the Sandhills Golf Course</h1>
-            <div className="space-x-4">
-              <Link to="/stats" className="text-white hover:text-gray-200">Player Stats</Link>
-              <Link to="/leaderboard" className="text-white hover:text-gray-200">Leaderboard</Link>
-            </div>
-          </div>
+      <div>
+        <nav className="navbar">
+          <a href="/">BP Men's League</a>
+          <a href="/stats">Player Stats</a>
+          <a href="/leaderboard">Leaderboard</a>
+          <a href="/weekly-results">Weekly Results</a>
+          <a href="/admin">Admin</a>
         </nav>
-        <div className="container mx-auto p-4">
-          <Routes>
-            <Route path="/admin" element={<AdminSection />} />
-            <Route path="/stats" element={<StatsSection />} />
-            <Route path="/stats/:playerName" element={<PlayerStats />} />
-            <Route path="/stats/:playerName/week/:weekNumber" element={<WeekStats />} />
-            <Route path="/week/:weekNumber" element={<WeekDetails />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/" element={<StatsSection />} />
-          </Routes>
-        </div>
+        <Routes>
+          <Route path="/" element={<League />} />
+          <Route path="/stats" element={<StatsSection />} />
+          <Route path="/stats/:playerName" element={<PlayerStats />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/weekly-results" element={<WeeklyResults />} />
+          <Route path="/week/:weekNumber" element={<WeekStats />} />
+          <Route path="/admin" element={<AdminSection />} />
+          <Route path="/admin/add-week" element={<AddWeek />} />
+          <Route path="/admin/edit-week/:weekNumber" element={<EditWeek />} />
+        </Routes>
       </div>
     </Router>
   );

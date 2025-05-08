@@ -1,133 +1,154 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { FaGolfBall } from 'react-icons/fa';
 
 function StatsSection() {
   const [players, setPlayers] = useState([]);
-  const [weeks, setWeeks] = useState([]);
-  const [pointSystemEnabled, setPointSystemEnabled] = useState(true);
+  const [sortConfig, setSortConfig] = useState({ key: 'gamesPlayed', direction: 'descending' });
 
   useEffect(() => {
     const storedPlayers = JSON.parse(localStorage.getItem('players') || '[]');
-    const storedWeeks = JSON.parse(localStorage.getItem('weeks') || '[]');
-    const storedPointSystem = localStorage.getItem('pointSystemEnabled');
-    setPlayers(storedPlayers);
-    setWeeks(storedWeeks);
-    setPointSystemEnabled(storedPointSystem !== null ? JSON.parse(storedPointSystem) : true);
+    const sortedPlayers = [...storedPlayers].sort((a, b) => {
+      const firstNameA = a.name.split(' ')[0].toLowerCase();
+      const firstNameB = b.name.split(' ')[0].toLowerCase();
+      return firstNameA.localeCompare(firstNameB);
+    });
+    setPlayers(sortedPlayers);
   }, []);
 
-  // Calculate total points for a player
-  const calculateTotalPoints = (player) => {
-    return (
-      player.wins * 5 +
-      player.secondPlace * 4 +
-      player.deucePotWins * 2 +
-      player.closestToPinWins * 3
-    );
+  const getAverageScore = (scores) => {
+    if (!scores || scores.length === 0) return '-';
+    const validScores = scores.filter(score => typeof score === 'number' && !isNaN(score));
+    if (validScores.length === 0) return '-';
+    const average = validScores.reduce((sum, score) => sum + score, 0) / validScores.length;
+    return average.toFixed(1);
   };
 
-  // Sort players by total points or wins, then by first name
-  const sortedPlayers = [...players].sort((a, b) => {
-    if (pointSystemEnabled) {
-      const pointsA = calculateTotalPoints(a);
-      const pointsB = calculateTotalPoints(b);
-      if (pointsB !== pointsA) {
-        return pointsB - pointsA;
-      }
-    } else {
-      if (b.wins !== a.wins) {
-        return b.wins - a.wins;
-      }
+  const sortPlayers = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
     }
-    const firstNameA = a.name.split(' ')[0].toLowerCase();
-    const firstNameB = b.name.split(' ')[0].toLowerCase();
-    return firstNameA.localeCompare(firstNameB);
-  });
+    setSortConfig({ key, direction });
+
+    const sortedPlayers = [...players].sort((a, b) => {
+      if (key === 'averageScore') {
+        const valueA = parseFloat(getAverageScore(a.scores)) || 0;
+        const valueB = parseFloat(getAverageScore(b.scores)) || 0;
+        return direction === 'ascending' ? valueA - valueB : valueB - valueA;
+      }
+      const valueA = a[key] || 0;
+      const valueB = b[key] || 0;
+      return direction === 'ascending' ? valueA - valueB : valueB - valueA;
+    });
+
+    setPlayers(sortedPlayers);
+  };
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'ascending' ? ' ↑' : ' ↓';
+    }
+    return '';
+  };
 
   return (
-    <div className="container mx-auto p-4">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Player Stats</h2>
-
-      {/* Weekly Results Section */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <h3 className="text-lg font-semibold mb-4">Weekly Results</h3>
-        {weeks.length === 0 ? (
-          <p className="text-gray-600">No weeks recorded yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {weeks
-              .sort((a, b) => a.weekNumber - b.weekNumber)
-              .map(week => (
-                <li key={week.weekNumber}>
-                  <Link
-                    to={`/week/${week.weekNumber}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Week {week.weekNumber}
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Player Stats Section */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Player Stats</h3>
+    <div className="container">
+      <div className="card">
+        <h2 className="text-2xl font-bold text-emerald-green flex items-center mb-4">
+          <FaGolfBall className="mr-2 text-golden-yellow" /> Player Stats
+        </h2>
         {players.length === 0 ? (
-          <p className="text-gray-600">No players added yet.</p>
+          <p className="text-dark-slate">No players added yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Player Name
+                  <th className="text-center">Name</th>
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('gamesPlayed'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Games Played{getSortIndicator('gamesPlayed')}
+                    </a>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Games Played
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('wins'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Wins{getSortIndicator('wins')}
+                    </a>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Wins
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('secondPlace'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      2nd Place{getSortIndicator('secondPlace')}
+                    </a>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    2nd Place
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('thirdPlace'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Highest Score{getSortIndicator('thirdPlace')}
+                    </a>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Highest Score
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('deucePotWins'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Deuce Pot Wins{getSortIndicator('deucePotWins')}
+                    </a>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Deuce Pot Wins
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('closestToPinWins'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Closest to Pin{getSortIndicator('closestToPinWins')}
+                    </a>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Closest to Pin Wins
+                  <th className="text-center">
+                    <a
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); sortPlayers('averageScore'); }}
+                      className="text-dark-slate hover:text-coral-red-dark"
+                    >
+                      Average Score{getSortIndicator('averageScore')}
+                    </a>
                   </th>
-                  {pointSystemEnabled && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Points
-                    </th>
-                  )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedPlayers.map(player => (
-                  <tr key={player.name}>
-                    <td className="px-6 py-4 whitespace-nowrap">
+              <tbody>
+                {players.map((player, index) => (
+                  <tr key={player.name} className={index % 2 === 0 ? 'bg-cream-white' : ''}>
+                    <td className="text-center">
                       <Link
                         to={`/stats/${encodeURIComponent(player.name)}`}
-                        className="text-blue-600 hover:underline"
+                        className="text-dark-slate hover:text-coral-red-dark"
                       >
                         {player.name}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{player.gamesPlayed}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{player.wins}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{player.secondPlace}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{player.thirdPlace}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{player.deucePotWins}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{player.closestToPinWins}</td>
-                    {pointSystemEnabled && (
-                      <td className="px-6 py-4 whitespace-nowrap">{calculateTotalPoints(player)}</td>
-                    )}
+                    <td className="text-center">{player.gamesPlayed || 0}</td>
+                    <td className="text-center">{player.wins || 0}</td>
+                    <td className="text-center">{player.secondPlace || 0}</td>
+                    <td className="text-center">{player.thirdPlace || 0}</td>
+                    <td className="text-center">{player.deucePotWins || 0}</td>
+                    <td className="text-center">{player.closestToPinWins || 0}</td>
+                    <td className="text-center">{getAverageScore(player.scores)}</td>
                   </tr>
                 ))}
               </tbody>
