@@ -14,11 +14,14 @@ function App() {
     <Router>
       <div>
         <nav className="navbar">
-          <a href="/">BP Men's League</a>
-          <a href="/stats">Player Stats</a>
-          <a href="/leaderboard">Leaderboard</a>
-          <a href="/weekly-results">Weekly Results</a>
-          <a href="/admin">Admin</a>
+          <div className="navbar-brand">
+            <a href="/">BP Men's League</a>
+          </div>
+          <div className="navbar-links">
+            <a href="/stats">Player Stats</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="/weekly-results">Weekly Results</a>
+          </div>
         </nav>
         <Routes>
           <Route path="/" element={<League />} />

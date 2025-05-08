@@ -4,149 +4,85 @@ import { FaGolfBall } from 'react-icons/fa';
 
 function Leaderboard() {
   const [players, setPlayers] = useState([]);
-  const [sortConfig, setSortConfig] = useState({ key: 'wins', direction: 'descending' });
-  const [pointSystemEnabled, setPointSystemEnabled] = useState(false);
+  const [pointsSystemEnabled, setPointsSystemEnabled] = useState(false);
 
   useEffect(() => {
     const storedPlayers = JSON.parse(localStorage.getItem('players') || '[]');
-    const storedPointSystem = localStorage.getItem('pointSystemEnabled');
-    const isPointSystemEnabled = storedPointSystem !== null ? JSON.parse(storedPointSystem) : false;
-    setPointSystemEnabled(isPointSystemEnabled);
-
-    const playersWithPoints = storedPlayers.map(player => ({
-      ...player,
-      points: isPointSystemEnabled
-        ? (player.wins || 0) * 10 + 
-          (player.secondPlace || 0) * 5 + 
-          (player.thirdPlace || 0) * 2 + 
-          (player.deucePotWins || 0) * 3 + 
-          (player.closestToPinWins || 0) * 3
-        : 0
-    }));
-
-    setPlayers(playersWithPoints);
+    const pointsEnabled = JSON.parse(localStorage.getItem('pointsSystemEnabled') || 'false');
+    setPlayers(storedPlayers);
+    setPointsSystemEnabled(pointsEnabled);
   }, []);
 
-  const sortPlayers = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-
-    const sortedPlayers = [...players].sort((a, b) => {
-      const valueA = a[key] || 0;
-      const valueB = b[key] || 0;
-      return direction === 'ascending' ? valueA - valueB : valueB - valueA;
-    });
-
-    setPlayers(sortedPlayers);
+  const getTopPlayers = (key, label) => {
+    return [...players]
+      .sort((a, b) => {
+        const valueA = a[key] || 0;
+        const valueB = b[key] || 0;
+        if (valueB === valueA) {
+          return a.name.localeCompare(b.name);
+        }
+        return valueB - valueA;
+      })
+      .slice(0, 5)
+      .map((player, index) => ({
+        rank: index + 1,
+        name: player.name,
+        value: player[key] || 0
+      }));
   };
 
-  const getSortIndicator = (key) => {
-    if (sortConfig.key === key) {
-      return sortConfig.direction === 'ascending' ? ' ↑' : ' ↓';
-    }
-    return '';
+  const renderLeaderboard = (title, key, label) => {
+    const topPlayers = getTopPlayers(key, label);
+    return (
+      <div className="leaderboard-card">
+        <h3 className="text-lg font-semibold text-dark-slate mb-2">{title}</h3>
+        {topPlayers.length === 0 ? (
+          <p className="text-dark-slate">No data available</p>
+        ) : (
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="text-left">Rank</th>
+                <th className="text-left">Player</th>
+                <th className="text-left">{label}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topPlayers.map((player) => (
+                <tr key={player.name} className={player.rank % 2 === 0 ? 'bg-cream-white' : ''}>
+                  <td>{player.rank}</td>
+                  <td>
+                    <Link
+                      to={`/player/${encodeURIComponent(player.name)}`}
+                      className="text-sky-blue hover:text-coral-red"
+                    >
+                      {player.name}
+                    </Link>
+                  </td>
+                  <td>{player.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
   };
 
   return (
     <div className="container">
       <div className="card">
         <h2 className="text-2xl font-bold text-emerald-green flex items-center mb-4">
-          <FaGolfBall className="mr-2 text-golden-yellow" /> Leaderboard
+          <FaGolfBall className="mr-2 text-golden-yellow" /> Leaderboards
         </h2>
-        {players.length === 0 ? (
-          <p className="text-dark-slate">No players added yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className="text-center">Name</th>
-                  {pointSystemEnabled && (
-                    <th className="text-center">
-                      <a
-                        href="#"
-                        onClick={(e) => { e.preventDefault(); sortPlayers('points'); }}
-                        className="text-dark-slate hover:text-coral-red-dark"
-                      >
-                        Points{getSortIndicator('points')}
-                      </a>
-                    </th>
-                  )}
-                  <th className="text-center">
-                    <a
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); sortPlayers('wins'); }}
-                      className="text-dark-slate hover:text-coral-red-dark"
-                    >
-                      Wins{getSortIndicator('wins')}
-                    </a>
-                  </th>
-                  <th className="text-center">
-                    <a
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); sortPlayers('secondPlace'); }}
-                      className="text-dark-slate hover:text-coral-red-dark"
-                    >
-                      2nd Place{getSortIndicator('secondPlace')}
-                    </a>
-                  </th>
-                  <th className="text-center">
-                    <a
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); sortPlayers('thirdPlace'); }}
-                      className="text-dark-slate hover:text-coral-red-dark"
-                    >
-                      Highest Score{getSortIndicator('thirdPlace')}
-                    </a>
-                  </th>
-                  <th className="text-center">
-                    <a
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); sortPlayers('deucePotWins'); }}
-                      className="text-dark-slate hover:text-coral-red-dark"
-                    >
-                      Deuce Pot Wins{getSortIndicator('deucePotWins')}
-                    </a>
-                  </th>
-                  <th className="text-center">
-                    <a
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); sortPlayers('closestToPinWins'); }}
-                      className="text-dark-slate hover:text-coral-red-dark"
-                    >
-                      Closest to Pin{getSortIndicator('closestToPinWins')}
-                    </a>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((player, index) => (
-                  <tr key={player.name} className={index % 2 === 0 ? 'bg-cream-white' : ''}>
-                    <td>
-                      <Link
-                        to={`/stats/${encodeURIComponent(player.name)}`}
-                        className="text-dark-slate hover:text-coral-red-dark"
-                      >
-                        {player.name}
-                      </Link>
-                    </td>
-                    {pointSystemEnabled && (
-                      <td>{player.points}</td>
-                    )}
-                    <td>{player.wins || 0}</td>
-                    <td>{player.secondPlace || 0}</td>
-                    <td>{player.thirdPlace || 0}</td>
-                    <td>{player.deucePotWins || 0}</td>
-                    <td>{player.closestToPinWins || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className={`leaderboard-grid ${pointsSystemEnabled ? 'points-enabled' : ''}`}>
+          {renderLeaderboard('Wins', 'wins', 'Wins')}
+          {renderLeaderboard('2nd Place', 'secondPlace', '2nd Place')}
+          {renderLeaderboard('Highest Score', 'thirdPlace', 'Highest Score')}
+          {renderLeaderboard('Deuce Pot Wins', 'deucePotWins', 'Deuce Pot Wins')}
+          {renderLeaderboard('Closest to Pin', 'closestToPinWins', 'Closest to Pin')}
+          {pointsSystemEnabled && renderLeaderboard('Points', 'points', 'Points')}
+        </div>
       </div>
     </div>
   );
